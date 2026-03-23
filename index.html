@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クレーン申請一覧</title>
+
+<style>
+body{
+  font-family:sans-serif;
+  background:#f2f4f7;
+  margin:0;
+  padding:20px;
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  background:white;
+  padding:25px;
+  border-radius:12px;
+  box-shadow:0 4px 6px rgba(0,0,0,0.1);
+}
+
+h2{
+  margin-bottom:20px;
+}
+
+/* フィルター */
+.controls{
+  display:flex;
+  gap:10px;
+  margin-bottom:15px;
+  flex-wrap:wrap;
+}
+
+input{
+  padding:8px;
+}
+
+button{
+  padding:8px 14px;
+  border:none;
+  border-radius:6px;
+  background:#ff8c00;
+  color:white;
+  cursor:pointer;
+}
+
+button:hover{
+  opacity:0.8;
+}
+
+/* テーブル */
+.table-wrap{
+  overflow-x:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:900px;
+}
+
+th{
+  background:#ff8c00;
+  color:white;
+  padding:10px;
+}
+
+td{
+  border:1px solid #ccc;
+  padding:8px;
+  text-align:center;
+}
+
+tr:hover{
+  background:#f1f7ff;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🏗️ クレーン申請一覧</h2>
+
+<div class="controls">
+  <input type="date" id="dateFilter">
+  <button onclick="filter()">抽出</button>
+  <button onclick="reset()">全表示</button>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>日付</th>
+<th>時間</th>
+<th>船番</th>
+<th>ブロック</th>
+<th>内容</th>
+<th>中組/大組</th>
+<th>材料</th>
+<th>備考</th>
+</tr>
+</thead>
+
+<tbody id="body"></tbody>
+
+</table>
+</div>
+
+</div>
+
+<script>
+
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxKrT-riwuRuTyufCCx8SHTDDqBBTkKZIoy3Itho39powoL59WTHMHNRyCEeycl4mY-/exec";
+
+let allData = [];
+
+/* 初期読み込み */
+async function load(){
+
+  const res = await fetch(GAS_URL);
+  const data = await res.json();
+
+  const rows = data.slice(1);
+
+  // 日付 → 時間で並び替え
+  rows.sort((a,b)=>{
+    if(a[2] !== b[2]) return a[2].localeCompare(b[2]);
+    return a[3].localeCompare(b[3]);
+  });
+
+  allData = rows;
+
+  draw(rows);
+}
+
+/* 表示 */
+function draw(data){
+
+  const body = document.getElementById("body");
+
+  body.innerHTML = data.map(r=>`
+    <tr>
+      <td>${r[2]}</td>
+      <td>${r[3]}</td>
+      <td>${r[4]}</td>
+      <td>${r[5]}</td>
+      <td>${r[6]}</td>
+      <td>${r[7]}</td>
+      <td>${r[8]}</td>
+      <td>${r[9]}</td>
+    </tr>
+  `).join("");
+
+}
+
+/* 日付フィルタ */
+function filter(){
+
+  const d = document.getElementById("dateFilter").value;
+
+  if(!d){
+    alert("日付を選択してください");
+    return;
+  }
+
+  const f = allData.filter(r=>r[2] === d);
+
+  draw(f);
+
+  if(f.length === 0){
+    alert("該当データなし");
+  }
+}
+
+/* リセット */
+function reset(){
+  document.getElementById("dateFilter").value = "";
+  draw(allData);
+}
+
+load();
+
+</script>
+
+</body>
+</html>
