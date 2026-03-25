@@ -15,10 +15,10 @@ body{
 }
 
 .container{
-  max-width:1100px;
+  max-width:1200px;
   margin:auto;
   background:white;
-  padding:25px;
+  padding:20px;
   border-radius:12px;
   box-shadow:0 4px 6px rgba(0,0,0,0.1);
 }
@@ -60,7 +60,7 @@ button:hover{
 table{
   width:100%;
   border-collapse:collapse;
-  min-width:900px;
+  min-width:1000px;
 }
 
 th{
@@ -73,12 +73,12 @@ td{
   border:1px solid #ccc;
   padding:8px;
   text-align:center;
+  font-size:13px;
 }
 
 tr:hover{
   background:#f1f7ff;
 }
-
 </style>
 
 </head>
@@ -91,20 +91,23 @@ tr:hover{
 
 <div class="controls">
   <input type="date" id="dateFilter">
-  <button onclick="filter()">抽出</button>
+  <button onclick="filter()">日付抽出</button>
   <button onclick="reset()">全表示</button>
 </div>
 
 <div class="table-wrap">
+
 <table>
+
 <thead>
 <tr>
-<th>日付</th>
+<th>依頼日</th>
 <th>時間</th>
+<th>業者名</th>
 <th>船番</th>
 <th>ブロック</th>
 <th>内容</th>
-<th>中組/大組</th>
+<th>サイズ</th>
 <th>材料</th>
 <th>備考</th>
 </tr>
@@ -113,6 +116,7 @@ tr:hover{
 <tbody id="body"></tbody>
 
 </table>
+
 </div>
 
 </div>
@@ -123,6 +127,11 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbxKrT-riwuRuTyufCCx8SHT
 
 let allData = [];
 
+/* 日付フォーマット */
+function normalizeDate(d){
+  return d.replaceAll("/", "-");
+}
+
 /* 初期読み込み */
 async function load(){
 
@@ -131,7 +140,7 @@ async function load(){
 
   const rows = data.slice(1);
 
-  // 日付 → 時間で並び替え
+  /* 並び替え（依頼日 → 時間） */
   rows.sort((a,b)=>{
     if(a[2] !== b[2]) return a[2].localeCompare(b[2]);
     return a[3].localeCompare(b[3]);
@@ -157,12 +166,13 @@ function draw(data){
       <td>${r[7]}</td>
       <td>${r[8]}</td>
       <td>${r[9]}</td>
+      <td>${r[10]}</td>
     </tr>
   `).join("");
 
 }
 
-/* 日付フィルタ */
+/* フィルタ */
 function filter(){
 
   const d = document.getElementById("dateFilter").value;
@@ -172,7 +182,7 @@ function filter(){
     return;
   }
 
-  const f = allData.filter(r=>r[2] === d);
+  const f = allData.filter(r => normalizeDate(r[2]) === d);
 
   draw(f);
 
