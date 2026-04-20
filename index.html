@@ -1,58 +1,105 @@
+```html
 <!DOCTYPE html>
-
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>クレーン申請一覧</title>
 
 <style>
 body{
+  margin:0;
+  padding:10px;
   font-family:sans-serif;
   background:#f2f4f7;
-  margin:0;
-  padding:20px;
+}
+
+/* 縦画面は横向き案内 */
+@media screen and (orientation:portrait){
+  body::before{
+    content:"📱 横向きでご利用ください";
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-size:28px;
+    font-weight:bold;
+    color:#333;
+    background:#f2f4f7;
+  }
+
+  .container{
+    display:none;
+  }
 }
 
 .container{
-  max-width:1200px;
+  max-width:1400px;
   margin:auto;
-  background:white;
-  padding:20px;
+  background:#fff;
   border-radius:12px;
-  box-shadow:0 4px 6px rgba(0,0,0,0.1);
+  padding:15px;
+  box-shadow:0 4px 8px rgba(0,0,0,.08);
 }
 
 h2{
-  margin-bottom:20px;
+  margin:0 0 15px;
 }
 
-/* フィルター */
 .controls{
   display:flex;
-  gap:10px;
-  margin-bottom:15px;
+  align-items:center;
+  gap:8px;
   flex-wrap:wrap;
+  margin-bottom:12px;
 }
 
-input{
-  padding:8px;
+.date-area{
+  display:flex;
+  gap:8px;
+  margin-left:28px;
+}
+
+button,input{
+  font-size:16px;
+  padding:10px 14px;
+  border-radius:6px;
+  border:none;
 }
 
 button{
-  padding:8px 14px;
-  border:none;
-  border-radius:6px;
-  background:#ff8c00;
-  color:white;
+  color:#fff;
   cursor:pointer;
 }
 
-button:hover{
-  opacity:0.8;
+.today-btn{
+  background:#007bff;
 }
 
-/* テーブル */
+.tomorrow-btn{
+  background:#ff9800;
+}
+
+.search-btn{
+  background:#666;
+}
+
+button:hover{
+  opacity:.85;
+}
+
+input[type="date"]{
+  border:1px solid #bbb;
+  background:#fff;
+  color:#333;
+}
+
+#titleDate{
+  font-size:22px;
+  font-weight:bold;
+  margin:10px 0 12px;
+}
+
 .table-wrap{
   overflow-x:auto;
 }
@@ -60,12 +107,11 @@ button:hover{
 table{
   width:100%;
   border-collapse:collapse;
-  min-width:1000px;
 }
 
 th{
   background:#ff8c00;
-  color:white;
+  color:#fff;
   padding:10px;
 }
 
@@ -73,14 +119,24 @@ td{
   border:1px solid #ccc;
   padding:8px;
   text-align:center;
-  font-size:13px;
+  font-size:14px;
+}
+
+tr:nth-child(even){
+  background:#fafafa;
 }
 
 tr:hover{
-  background:#f1f7ff;
+  background:#eef6ff;
+}
+
+.message{
+  text-align:center;
+  padding:30px;
+  font-size:24px;
+  color:#666;
 }
 </style>
-
 </head>
 
 <body>
@@ -90,18 +146,21 @@ tr:hover{
 <h2>🏗️ クレーン申請一覧</h2>
 
 <div class="controls">
-  <input type="date" id="dateFilter">
-  <button onclick="filter()">日付抽出</button>
-  
+  <button class="today-btn" onclick="showToday()">今日</button>
+  <button class="tomorrow-btn" onclick="showTomorrow()">明日</button>
+
+  <div class="date-area">
+    <input type="date" id="dateFilter">
+    <button class="search-btn" onclick="filterDate()">日付抽出</button>
+  </div>
 </div>
 
+<div id="titleDate"></div>
+
 <div class="table-wrap">
-
 <table>
-
 <thead>
 <tr>
-<th>依頼日</th>
 <th>時間</th>
 <th>業者名</th>
 <th>船番</th>
@@ -114,51 +173,68 @@ tr:hover{
 </thead>
 
 <tbody id="body"></tbody>
-
 </table>
-
 </div>
+
+<div id="msg"></div>
 
 </div>
 
 <script>
-
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxKrT-riwuRuTyufCCx8SHTDDqBBTkKZIoy3Itho39powoL59WTHMHNRyCEeycl4mY-/exec";
 
 let allData = [];
+let loaded = false;
 
-/* 日付フォーマット */
+/* 読込 */
+async function load(){
+  const res = await fetch(GAS_URL);
+  const data = await res.json();
+
+  allData = data.slice(1);
+  loaded = true;
+}
+
+/* 読込待ち */
+async function ensureLoaded(){
+  if(!loaded){
+    await load();
+  }
+}
+
+/* 日付整形 */
 function normalizeDate(d){
   return d.replaceAll("/", "-");
 }
 
-/* 初期読み込み */
-async function load(){
-
-  const res = await fetch(GAS_URL);
-  const data = await res.json();
-
-  const rows = data.slice(1);
-
-  /* 並び替え（依頼日 → 時間） */
-  rows.sort((a,b)=>{
-    if(a[2] !== b[2]) return a[2].localeCompare(b[2]);
-    return a[3].localeCompare(b[3]);
-  });
-
-  allData = rows;
-
-  draw(rows);
+function jpDate(d){
+  return d.replaceAll("-", "/");
 }
 
-/* 表示 */
-function draw(data){
+/* 希望時間ソート */
+function sortTime(rows){
+  rows.sort((a,b)=>a[3].localeCompare(b[3]));
+}
+
+/* 描画 */
+function draw(rows,targetDate,label){
 
   const body = document.getElementById("body");
+  const msg = document.getElementById("msg");
+  const title = document.getElementById("titleDate");
 
-  body.innerHTML = data.map(r=>`
+  title.innerHTML = `${label}（${jpDate(targetDate)}）`;
+
+  if(rows.length === 0){
+    body.innerHTML = "";
+    msg.innerHTML = `<div class="message">指定日付に申請なし</div>`;
+    return;
+  }
+
+  msg.innerHTML = "";
+
+  body.innerHTML = rows.map(r => `
     <tr>
-      <td>${r[2]}</td>
       <td>${r[3]}</td>
       <td>${r[4]}</td>
       <td>${r[5]}</td>
@@ -169,37 +245,77 @@ function draw(data){
       <td>${r[10]}</td>
     </tr>
   `).join("");
-
 }
 
-/* フィルタ */
-function filter(){
+/* 抽出共通 */
+function filterCore(dateStr,label){
+
+  let rows = allData.filter(r => normalizeDate(r[2]) === dateStr);
+
+  sortTime(rows);
+
+  draw(rows,dateStr,label);
+}
+
+/* 今日 */
+async function showToday(){
+
+  await ensureLoaded();
+
+  const d = new Date();
+
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+
+  filterCore(`${y}-${m}-${day}`,"本日申請一覧");
+}
+
+/* 明日 */
+async function showTomorrow(){
+
+  await ensureLoaded();
+
+  const t = new Date();
+  t.setDate(t.getDate()+1);
+
+  const y = t.getFullYear();
+  const m = String(t.getMonth()+1).padStart(2,"0");
+  const day = String(t.getDate()).padStart(2,"0");
+
+  filterCore(`${y}-${m}-${day}`,"明日申請一覧");
+}
+
+/* 日付指定 */
+async function filterDate(){
+
+  await ensureLoaded();
 
   const d = document.getElementById("dateFilter").value;
 
-  if(!d){
-    alert("日付を選択してください");
-    return;
-  }
+  if(!d) return;
 
-  const f = allData.filter(r => normalizeDate(r[2]) === d);
+  filterCore(d,"指定日付申請一覧");
+}
 
-  draw(f);
+/* 時間帯で自動表示 */
+async function autoOpen(){
 
-  if(f.length === 0){
-    alert("該当データなし");
+  const now = new Date();
+  const hour = now.getHours();
+
+  if(hour < 9){
+    await showToday();
+  }else{
+    await showTomorrow();
   }
 }
 
-/* リセット */
-function reset(){
-  document.getElementById("dateFilter").value = "";
-  draw(allData);
-}
-
-load();
+/* 起動 */
+load().then(()=>autoOpen());
 
 </script>
 
 </body>
 </html>
+```
