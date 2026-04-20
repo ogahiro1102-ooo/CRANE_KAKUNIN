@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -14,25 +13,6 @@ body{
   background:#f2f4f7;
 }
 
-/* 縦画面は横向き案内 */
-@media screen and (orientation:portrait){
-  body::before{
-    content:"📱 横向きでご利用ください";
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    font-size:28px;
-    font-weight:bold;
-    color:#333;
-    background:#f2f4f7;
-  }
-
-  .container{
-    display:none;
-  }
-}
-
 .container{
   max-width:1400px;
   margin:auto;
@@ -46,6 +26,7 @@ h2{
   margin:0 0 15px;
 }
 
+/* 操作バー */
 .controls{
   display:flex;
   align-items:center;
@@ -57,7 +38,7 @@ h2{
 .date-area{
   display:flex;
   gap:8px;
-  margin-left:28px;
+  margin-left:20px;
 }
 
 button,input{
@@ -90,16 +71,16 @@ button:hover{
 
 input[type="date"]{
   border:1px solid #bbb;
-  background:#fff;
-  color:#333;
 }
 
+/* タイトル */
 #titleDate{
-  font-size:22px;
+  font-size:20px;
   font-weight:bold;
-  margin:10px 0 12px;
+  margin:10px 0;
 }
 
+/* テーブル */
 .table-wrap{
   overflow-x:auto;
 }
@@ -107,6 +88,7 @@ input[type="date"]{
 table{
   width:100%;
   border-collapse:collapse;
+  min-width:1000px;
 }
 
 th{
@@ -130,10 +112,11 @@ tr:hover{
   background:#eef6ff;
 }
 
+/* メッセージ */
 .message{
   text-align:center;
   padding:30px;
-  font-size:24px;
+  font-size:22px;
   color:#666;
 }
 </style>
@@ -146,6 +129,7 @@ tr:hover{
 <h2>🏗️ クレーン申請一覧</h2>
 
 <div class="controls">
+
   <button class="today-btn" onclick="showToday()">今日</button>
   <button class="tomorrow-btn" onclick="showTomorrow()">明日</button>
 
@@ -153,6 +137,7 @@ tr:hover{
     <input type="date" id="dateFilter">
     <button class="search-btn" onclick="filterDate()">日付抽出</button>
   </div>
+
 </div>
 
 <div id="titleDate"></div>
@@ -186,16 +171,15 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbxKrT-riwuRuTyufCCx8SHT
 let allData = [];
 let loaded = false;
 
-/* 読込 */
+/* データ取得 */
 async function load(){
   const res = await fetch(GAS_URL);
   const data = await res.json();
-
   allData = data.slice(1);
   loaded = true;
 }
 
-/* 読込待ち */
+/* 読込保証 */
 async function ensureLoaded(){
   if(!loaded){
     await load();
@@ -204,26 +188,33 @@ async function ensureLoaded(){
 
 /* 日付整形 */
 function normalizeDate(d){
-  return d.replaceAll("/", "-");
+  return d.replaceAll("/","-");
 }
 
 function jpDate(d){
-  return d.replaceAll("-", "/");
+  return d.replaceAll("-","/");
 }
 
-/* 希望時間ソート */
+/* 時間ソート（数値化） */
 function sortTime(rows){
-  rows.sort((a,b)=>a[3].localeCompare(b[3]));
+  rows.sort((a,b)=>{
+    return timeToMin(a[3]) - timeToMin(b[3]);
+  });
+}
+
+function timeToMin(t){
+  const [h,m] = t.split(":").map(Number);
+  return h*60 + m;
 }
 
 /* 描画 */
-function draw(rows,targetDate,label){
+function draw(rows,date,label){
 
   const body = document.getElementById("body");
   const msg = document.getElementById("msg");
   const title = document.getElementById("titleDate");
 
-  title.innerHTML = `${label}（${jpDate(targetDate)}）`;
+  title.innerHTML = `${label}（${jpDate(date)}）`;
 
   if(rows.length === 0){
     body.innerHTML = "";
@@ -233,7 +224,7 @@ function draw(rows,targetDate,label){
 
   msg.innerHTML = "";
 
-  body.innerHTML = rows.map(r => `
+  body.innerHTML = rows.map(r=>`
     <tr>
       <td>${r[3]}</td>
       <td>${r[4]}</td>
@@ -247,7 +238,7 @@ function draw(rows,targetDate,label){
   `).join("");
 }
 
-/* 抽出共通 */
+/* 共通フィルタ */
 function filterCore(dateStr,label){
 
   let rows = allData.filter(r => normalizeDate(r[2]) === dateStr);
@@ -292,19 +283,17 @@ async function filterDate(){
   await ensureLoaded();
 
   const d = document.getElementById("dateFilter").value;
-
   if(!d) return;
 
   filterCore(d,"指定日付申請一覧");
 }
 
-/* 時間帯で自動表示 */
+/* 初期表示（時間帯自動） */
 async function autoOpen(){
 
-  const now = new Date();
-  const hour = now.getHours();
+  const h = new Date().getHours();
 
-  if(hour < 9){
+  if(h < 9){
     await showToday();
   }else{
     await showTomorrow();
@@ -318,4 +307,3 @@ load().then(()=>autoOpen());
 
 </body>
 </html>
-```
